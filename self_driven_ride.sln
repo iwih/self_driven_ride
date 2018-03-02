@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.27130.2036
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "self_driven_ride", "self_driven_ride\self_driven_ride.csproj", "{B80D300F-1083-4AAA-9DEE-00537507AE63}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "netcore_self_driven_ride", "netcore_self_driven_ride\netcore_self_driven_ride.csproj", "{892B12C6-A95E-4D2F-9FF6-A733FB399216}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,14 @@ Global
 		{B80D300F-1083-4AAA-9DEE-00537507AE63}.Release|Any CPU.Build.0 = Release|Any CPU
 		{B80D300F-1083-4AAA-9DEE-00537507AE63}.Release|x64.ActiveCfg = Release|x64
 		{B80D300F-1083-4AAA-9DEE-00537507AE63}.Release|x64.Build.0 = Release|x64
+		{892B12C6-A95E-4D2F-9FF6-A733FB399216}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{892B12C6-A95E-4D2F-9FF6-A733FB399216}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{892B12C6-A95E-4D2F-9FF6-A733FB399216}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{892B12C6-A95E-4D2F-9FF6-A733FB399216}.Debug|x64.Build.0 = Debug|Any CPU
+		{892B12C6-A95E-4D2F-9FF6-A733FB399216}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{892B12C6-A95E-4D2F-9FF6-A733FB399216}.Release|Any CPU.Build.0 = Release|Any CPU
+		{892B12C6-A95E-4D2F-9FF6-A733FB399216}.Release|x64.ActiveCfg = Release|Any CPU
+		{892B12C6-A95E-4D2F-9FF6-A733FB399216}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
