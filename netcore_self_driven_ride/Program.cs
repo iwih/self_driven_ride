@@ -4,9 +4,8 @@ using System.ComponentModel;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System.Threading;
 
-namespace self_driven_ride
+namespace netcore_self_driven_ride
 {
     public class Program
     {
@@ -106,6 +105,75 @@ namespace self_driven_ride
         {
             LoadCaseFile();
 
+            RidesBasedApproach();
+
+            CarsBasedApproach();
+
+            Console.WriteLine();
+
+            GenerateOuputFile();
+
+            Console.WriteLine("+~-+-+-+-+ Finished +-+-+-+-~+");
+            Console.ReadLine();
+        }
+
+        private static void CarsBasedApproach()
+        {
+            var totalTikToks = CarsAvailable.Count * RidesBooked.Count;
+            for (var i = 0; i < CarsAvailable.Count; i++)
+            {
+                var car = CarsAvailable[i];
+                for (var tikTok = 1; tikTok <= T_Time; tikTok++)
+                {
+                    //first layer looks for bonused rides
+                    for (var rideCounter = 0; rideCounter < RidesBooked.Count; rideCounter++)
+                    {
+                        var rideCurrent = RidesBooked[rideCounter];
+
+                        if (car.RideCurrent != null) continue; // skip this ride
+
+                        var distCar = Ride.DistanceGet(car.LocationCurrent, rideCurrent.StartPoint);
+
+                        var timeToTik = tikTok - 1 + distCar;
+
+                        if (timeToTik == rideCurrent.EarlitTime)
+                        {
+                            car.RideCurrent = rideCurrent;
+                            RidesBooked.Remove(rideCurrent);
+                            break;
+                        }
+                    }
+
+                    //second layer looks for scored rides
+                    for (var rideCounter = 0; rideCounter < RidesBooked.Count; rideCounter++)
+                    {
+                        var rideCurrent = RidesBooked[rideCounter];
+
+                        if (car.RideCurrent != null) continue; // skip this ride
+
+                        var distToStart = Ride.DistanceGet(car.LocationCurrent, rideCurrent.StartPoint);
+                        var distToDesti = Ride.DistanceGet(car.LocationCurrent, rideCurrent.DestiPoint);
+
+                        var timeToTik = tikTok - 1 + distToStart + distToDesti;
+
+                        if (timeToTik <= rideCurrent.LatestTime)
+                        {
+                            car.RideCurrent = rideCurrent;
+                            RidesBooked.Remove(rideCurrent);
+                            break;
+                        }
+                    }
+
+                    var currentTikTok = i * tikTok;
+                    car.Move();
+                    Console.Write(
+                        $"\rProgress: {currentTikTok} - {totalTikToks}, Percentage: {(float) currentTikTok / totalTikToks * 100} %                         ");
+                }
+            }
+        }
+
+        private static void RidesBasedApproach()
+        {
             for (var tikTok = 1; tikTok <= T_Time; tikTok++)
             {
                 var indexInvokedCars = new List<int>();
@@ -173,25 +241,17 @@ namespace self_driven_ride
                 Console.Write(
                     $"\rProgress: {tikTok} - {T_Time}, Percentage: {(float) tikTok / T_Time * 100} %                         ");
             }
-
-            Console.WriteLine();
-
-            GenerateOuputFile();
-
-            Console.WriteLine("+~-+-+-+-+ Finished +-+-+-+-~+");
-            Console.ReadLine();
         }
 
         private static void GenerateOuputFile()
         {
             File.WriteAllText(_outputFilePath, string.Empty);
-            for (var i = 0; i < CarsAvailable.Count; i++)
+            foreach (var car in CarsAvailable)
             {
-                var car = CarsAvailable[i];
                 var ridesLine = string.Empty;
-                for (var i1 = 0; i1 < car.SuccessfulRides.Count; i1++)
+                foreach (var t in car.SuccessfulRides)
                 {
-                    ridesLine += " " + car.SuccessfulRides[i1].Index;
+                    ridesLine += " " + t.Index;
                 }
 
                 var carLine = (car.SuccessfulRides.Count) + " " + ridesLine + Environment.NewLine;
@@ -367,9 +427,9 @@ namespace self_driven_ride
             private void Car_CarLocationChanged(object sender, PropertyChangedEventArgs e)
             {
                 UpdateArrivalStatus();
-                
+
                 if (_loggedCars)
-                WriteCarLog();
+                    WriteCarLog();
 
                 if (RideCurrent == null)
                     return; //no need to update anything
