@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -106,9 +107,11 @@ namespace self_driven_ride
         {
             LoadCaseFile();
 
+            ScoreDependantSelection();
+
             //RidesBasedApproach();
 
-            CarsBasedApproach();
+            //CarsBasedApproach();
 
             Console.WriteLine();
 
@@ -117,6 +120,15 @@ namespace self_driven_ride
             Console.WriteLine("+~-+-+-+-+ Finished +-+-+-+-~+");
             Console.ReadLine();
         }
+
+        private static void ScoreDependantSelection()
+        {
+            var sortedRides = RidesBooked.OrderByDescending(ride => ride.Distance).ToList();
+            Console.WriteLine("Rides sorted descending");
+
+
+        }
+
 
         private static void CarsBasedApproach()
         {
@@ -166,7 +178,7 @@ namespace self_driven_ride
                     }
 
                     car.Move();
-                    
+
                     var currentTikTok = tikTok + (i * T_Time);
                     Console.Write(
                         $"\rProgress: {currentTikTok} - {totalTikToks}, Percentage: {(float) currentTikTok / totalTikToks * 100} %                         ");
