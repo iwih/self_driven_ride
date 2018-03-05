@@ -12,7 +12,7 @@ namespace self_driven_ride
     public class Program
     {
         internal static List<Ride> RidesBooked;
-        internal static List<Car> CarsAvailable;
+        internal static List<Car> CarsFleet;
         internal static Board CityBoard;
         internal static int T_Time;
         public static int Bonus;
@@ -70,11 +70,11 @@ namespace self_driven_ride
             Console.WriteLine($"City {CityBoard.Rows}x{CityBoard.Columns}");
 
             var cars = int.Parse(headerTokens[2]);
-            CarsAvailable = new List<Car>(cars);
+            CarsFleet = new List<Car>(cars);
             Console.WriteLine($"Cars #{cars}");
             for (var i = 0; i < cars; i++)
             {
-                CarsAvailable.Add(new Car(i));
+                CarsFleet.Add(new Car(i));
             }
 
             var rides = int.Parse(headerTokens[3]);
@@ -148,12 +148,13 @@ namespace self_driven_ride
             Console.WriteLine("Assiging highest bonus-rides to cars..");
             //this check is at the start of time (big-bang), all the cars are at the origin point (0, 0)
             var indexFreeCar = 0;
-            foreach (var ride in sortedRides)
+            while (indexFreeCar < CarsFleet.Count && sortedRides.Count > 0)
             {
-                CarsAvailable[indexFreeCar].SuccessfulRides.Add(ride);
+                sortedRides[0].BonusWillBeScored = true;
+                CarsFleet[indexFreeCar].SuccessfulRides.Add(sortedRides[0]);
+                sortedRides.RemoveAt(0);
 
                 indexFreeCar++;
-                if (indexFreeCar == CarsAvailable.Count) break;
             }
 
             //now, there are the following probablities:
@@ -162,10 +163,19 @@ namespace self_driven_ride
             //   b) Some or all left rides can be fit after some or all cars' ride
             //   c) Mix of (a) & (b)
             //   e) Some or all left rides can't be fit neither before nor after some or all cars' ride
+            //      i)  the unfittable rides are not a bigger deal -> ok
+            //      ii) the unfittable rides are a bigger deal!    -> f#*k
             //
             //2) All cars have a ride and no rides left -> perfect -> done
             //3) Some of cars have rides and there is no left rides -> perfect -> done
 
+            // trying 1 - a & b:: with bonus
+            foreach (var car in CarsFleet)
+            {
+                
+            }
+
+            //trying 1 - a & b:: without bonus
 
         }
 
@@ -174,137 +184,10 @@ namespace self_driven_ride
             Console.WriteLine();
         }
 
-        private static void CarsBasedApproach()
-        {
-            var totalTikToks = CarsAvailable.Count * T_Time;
-            for (var i = 0; i < CarsAvailable.Count; i++)
-            {
-                var car = CarsAvailable[i];
-                for (var tikTok = 1; tikTok <= T_Time; tikTok++)
-                {
-                    //first layer looks for bonused rides
-                    for (var rideCounter = 0; rideCounter < RidesBooked.Count; rideCounter++)
-                    {
-                        var rideCurrent = RidesBooked[rideCounter];
-
-                        if (car.RideCurrent != null) continue; // skip this ride
-
-                        var distCar = Ride.DistanceGet(car.LocationCurrent, rideCurrent.StartPoint);
-
-                        var timeToTik = tikTok - 1 + distCar;
-
-                        if (timeToTik == rideCurrent.EarlitTime)
-                        {
-                            car.RideCurrent = rideCurrent;
-                            RidesBooked.Remove(rideCurrent);
-                            break;
-                        }
-                    }
-
-                    //second layer looks for scored rides
-                    for (var rideCounter = 0; rideCounter < RidesBooked.Count; rideCounter++)
-                    {
-                        var rideCurrent = RidesBooked[rideCounter];
-
-                        if (car.RideCurrent != null) continue; // skip this ride
-
-                        var distToStart = Ride.DistanceGet(car.LocationCurrent, rideCurrent.StartPoint);
-                        var distToDesti = Ride.DistanceGet(car.LocationCurrent, rideCurrent.DestiPoint);
-
-                        var timeToTik = tikTok - 1 + distToStart + distToDesti;
-
-                        if (timeToTik <= rideCurrent.LatestTime)
-                        {
-                            car.RideCurrent = rideCurrent;
-                            RidesBooked.Remove(rideCurrent);
-                            break;
-                        }
-                    }
-
-                    car.Move();
-
-                    var currentTikTok = tikTok + (i * T_Time);
-                    Console.Write(
-                        $"\rProgress: {currentTikTok} - {totalTikToks}, Percentage: {(float)currentTikTok / totalTikToks * 100} %                         ");
-                }
-            }
-        }
-
-        private static void RidesBasedApproach()
-        {
-            for (var tikTok = 1; tikTok <= T_Time; tikTok++)
-            {
-                var indexInvokedCars = new List<int>();
-
-                //first layer looks for bonused rides
-                for (var rideCounter = 0; rideCounter < RidesBooked.Count; rideCounter++)
-                {
-                    var rideCurrent = RidesBooked[rideCounter];
-
-                    for (var carCounter = 0; carCounter < CarsAvailable.Count; carCounter++)
-                    {
-                        var carCurrent = CarsAvailable[carCounter];
-                        if (carCurrent.RideCurrent != null) continue; // skip this car
-
-                        var distCar = Ride.DistanceGet(carCurrent.LocationCurrent, rideCurrent.StartPoint);
-
-                        var timeToTik = tikTok - 1 + distCar;
-
-                        if (timeToTik == rideCurrent.EarlitTime)
-                        {
-                            carCurrent.RideCurrent = rideCurrent;
-                            RidesBooked.Remove(rideCurrent);
-                            carCurrent.Move();
-                            indexInvokedCars.Add(carCounter);
-                            break;
-                        }
-                    }
-                }
-
-                //second layer looks for scored rides
-                for (var rideCounter = 0; rideCounter < RidesBooked.Count; rideCounter++)
-                {
-                    var rideCurrent = RidesBooked[rideCounter];
-
-                    for (var carCounter = 0; carCounter < CarsAvailable.Count; carCounter++)
-                    {
-                        var carCurrent = CarsAvailable[carCounter];
-                        if (carCurrent.RideCurrent != null) continue; // skip this car
-
-                        var distToStart = Ride.DistanceGet(carCurrent.LocationCurrent, rideCurrent.StartPoint);
-                        var distToDesti = Ride.DistanceGet(carCurrent.LocationCurrent, rideCurrent.DestiPoint);
-
-                        var timeToTik = tikTok - 1 + distToStart + distToDesti;
-
-                        if (timeToTik <= rideCurrent.LatestTime)
-                        {
-                            carCurrent.RideCurrent = rideCurrent;
-                            RidesBooked.Remove(rideCurrent);
-                            carCurrent.Move();
-                            indexInvokedCars.Add(carCounter);
-                            break;
-                        }
-                    }
-                }
-
-                for (var i = 0; i < CarsAvailable.Count; i++)
-                {
-                    var car = CarsAvailable[i];
-                    if (car.RideCurrent == null) continue;
-
-                    if (!indexInvokedCars.Contains(i))
-                        car.Move();
-                }
-
-                Console.Write(
-                    $"\rProgress: {tikTok} - {T_Time}, Percentage: {(float)tikTok / T_Time * 100} %                         ");
-            }
-        }
-
         private static void GenerateOuputFile()
         {
             File.WriteAllText(_outputFilePath, string.Empty);
-            foreach (var car in CarsAvailable)
+            foreach (var car in CarsFleet)
             {
                 var ridesLine = string.Empty;
                 foreach (var t in car.SuccessfulRides)
@@ -362,6 +245,8 @@ namespace self_driven_ride
             internal int TimeFinshLongest { get; }
 
             internal bool IsBonusable { set; get; }
+
+            internal bool BonusWillBeScored { set; get; }
 
             public Ride(
                 int index,
