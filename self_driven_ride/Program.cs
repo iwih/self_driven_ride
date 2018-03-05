@@ -15,11 +15,14 @@ namespace self_driven_ride
         internal static List<Car> CarsAvailable;
         internal static Board CityBoard;
         internal static int T_Time;
+        public static int Bonus;
+
         internal static string CaseFileName;
         private static string _outputFilePath;
         private static string _outputDirectory;
 
         private static bool _loggedCars = false;
+
 
         public static void Main()
         {
@@ -58,7 +61,7 @@ namespace self_driven_ride
             var tokensMain = File.ReadAllLines(path, Encoding.ASCII);
 
             //reading case header info
-            var spaceSplitter = new[] {" "};
+            var spaceSplitter = new[] { " " };
             var headerTokens = tokensMain[0].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
 
             var rows = int.Parse(headerTokens[0]);
@@ -79,6 +82,7 @@ namespace self_driven_ride
             Console.WriteLine($"Rides #{rides}");
 
             var bonus = int.Parse(headerTokens[4]);
+            Bonus = bonus;
             Console.WriteLine($"Bouns is {bonus} Yay!");
 
             var steps = int.Parse(headerTokens[5]);
@@ -95,7 +99,19 @@ namespace self_driven_ride
                 var earlit = int.Parse(rideTokens[4]);
                 var latest = int.Parse(rideTokens[5]);
 
-                var ride = new Ride(i - 1, startPoint, destiPoint, earlit, latest);
+                var distance = Ride.DistanceGet(startPoint, destiPoint);
+
+                //validating ride
+                var strtTimeShortest = Ride.DistanceGet(new Point(0, 0), startPoint);
+                var endTimeLongest = latest - earlit + strtTimeShortest;
+
+                var isAssignableRide = (endTimeLongest <= T_Time); //the total time to start and finish the ride reasonable with the total time of the case
+                if (!isAssignableRide) continue; //this ride can't be taken anyway -> remove it totally -> check the next one
+
+                var endTimeShortest = strtTimeShortest + distance;
+                var isBonusable = (endTimeShortest <= T_Time);
+
+                var ride = new Ride(i - 1, startPoint, destiPoint, earlit, latest, distance, isBonusable);
 
                 RidesBooked.Add(ride);
             }
@@ -126,9 +142,27 @@ namespace self_driven_ride
             var sortedRides = RidesBooked.OrderByDescending(ride => ride.Distance).ToList();
             Console.WriteLine("Rides sorted descending");
 
+            ConsoleLineEnter();
 
+            Console.WriteLine("Assiging highest bonus-rides to cars..");
+            //this check is at the start of time (big-bang), all the cars are at the origin point (0, 0)
+            var skipTheseCars = new bool[CarsAvailable.Count];
+            foreach (var ride in sortedRides)
+            {
+                for (var i = 0; i < CarsAvailable.Count; i++)
+                {
+                    if (skipTheseCars[i]) continue; //this car is already took a ride
+
+                    CarsAvailable[i].RideCurrent = ride;
+                    skipTheseCars[i] = true;
+                }
+            }
         }
 
+        private static void ConsoleLineEnter()
+        {
+            Console.WriteLine();
+        }
 
         private static void CarsBasedApproach()
         {
@@ -181,7 +215,7 @@ namespace self_driven_ride
 
                     var currentTikTok = tikTok + (i * T_Time);
                     Console.Write(
-                        $"\rProgress: {currentTikTok} - {totalTikToks}, Percentage: {(float) currentTikTok / totalTikToks * 100} %                         ");
+                        $"\rProgress: {currentTikTok} - {totalTikToks}, Percentage: {(float)currentTikTok / totalTikToks * 100} %                         ");
                 }
             }
         }
@@ -253,7 +287,7 @@ namespace self_driven_ride
                 }
 
                 Console.Write(
-                    $"\rProgress: {tikTok} - {T_Time}, Percentage: {(float) tikTok / T_Time * 100} %                         ");
+                    $"\rProgress: {tikTok} - {T_Time}, Percentage: {(float)tikTok / T_Time * 100} %                         ");
             }
         }
 
@@ -305,7 +339,6 @@ namespace self_driven_ride
         {
             internal int Index { get; }
 
-
             internal Point StartPoint { get; }
             internal Point DestiPoint { get; }
 
@@ -313,15 +346,18 @@ namespace self_driven_ride
             internal int LatestTime { get; }
 
             internal int Distance { get; }
+            internal bool IsBonusable { set; get; }
 
-            public Ride(int index, Point startPoint, Point destiPoint, int earlitTime, int latestTime) : this(index)
+            public Ride(int index, Point startPoint, Point destiPoint, int earlitTime, int latestTime, int distance, bool bonusability) : this(index)
             {
                 StartPoint = startPoint;
                 DestiPoint = destiPoint;
                 EarlitTime = earlitTime;
                 LatestTime = latestTime;
 
-                Distance = DistanceGet(startPoint, destiPoint);
+                Distance = distance;
+
+                IsBonusable = bonusability;
             }
 
             public Ride(int index)
@@ -337,6 +373,12 @@ namespace self_driven_ride
             public override string ToString()
             {
                 return " " + Index.ToString();
+            }
+
+            internal int TotalScore()
+            {
+                var score = IsBonusable ? (Distance + Bonus) : Distance;
+                return score;
             }
         }
 
@@ -470,6 +512,11 @@ namespace self_driven_ride
                 var rideIndex = RideCurrent?.Index.ToString() ?? "null";
                 File.AppendAllText(_logFilePath,
                     $"({LocationCurrent.R}, {LocationCurrent.C})\tRide: {rideIndex}\tStartArrived: {StartArrived}\tDestiArrived: {DestiArrived}\n");
+            }
+
+            public bool IsFree()
+            {
+                return (RideCurrent == null);
             }
         }
     }
