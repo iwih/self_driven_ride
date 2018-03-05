@@ -111,7 +111,7 @@ namespace self_driven_ride
                 var endTimeShortest = strtTimeShortest + distance;
                 var isBonusable = (endTimeShortest <= T_Time);
 
-                var ride = new Ride(i - 1, startPoint, destiPoint, earlit, latest, distance, isBonusable);
+                var ride = new Ride(i - 1, startPoint, destiPoint, earlit, latest, distance, strtTimeShortest, endTimeShortest, endTimeLongest, isBonusable);
 
                 RidesBooked.Add(ride);
             }
@@ -139,24 +139,34 @@ namespace self_driven_ride
 
         private static void ScoreDependantSelection()
         {
-            var sortedRides = RidesBooked.OrderByDescending(ride => ride.Distance).ToList();
+            //sorting rides by their total score (score + bonus)
+            var sortedRides = RidesBooked.OrderByDescending(ride => ride.TotalScore()).ToList();
             Console.WriteLine("Rides sorted descending");
 
             ConsoleLineEnter();
 
             Console.WriteLine("Assiging highest bonus-rides to cars..");
             //this check is at the start of time (big-bang), all the cars are at the origin point (0, 0)
-            var skipTheseCars = new bool[CarsAvailable.Count];
+            var indexFreeCar = 0;
             foreach (var ride in sortedRides)
             {
-                for (var i = 0; i < CarsAvailable.Count; i++)
-                {
-                    if (skipTheseCars[i]) continue; //this car is already took a ride
+                CarsAvailable[indexFreeCar].SuccessfulRides.Add(ride);
 
-                    CarsAvailable[i].RideCurrent = ride;
-                    skipTheseCars[i] = true;
-                }
+                indexFreeCar++;
+                if (indexFreeCar == CarsAvailable.Count) break;
             }
+
+            //now, there are the following probablities:
+            //1) All cars have a ride and there is/are left ride(s)
+            //   a) Some or all left rides can be fit before some or all cars' ride
+            //   b) Some or all left rides can be fit after some or all cars' ride
+            //   c) Mix of (a) & (b)
+            //   e) Some or all left rides can't be fit neither before nor after some or all cars' ride
+            //
+            //2) All cars have a ride and no rides left -> perfect -> done
+            //3) Some of cars have rides and there is no left rides -> perfect -> done
+
+
         }
 
         private static void ConsoleLineEnter()
@@ -346,9 +356,24 @@ namespace self_driven_ride
             internal int LatestTime { get; }
 
             internal int Distance { get; }
+
+            internal int TimeStartShortest { get; }
+            internal int TimeFinshShortest { get; }
+            internal int TimeFinshLongest { get; }
+
             internal bool IsBonusable { set; get; }
 
-            public Ride(int index, Point startPoint, Point destiPoint, int earlitTime, int latestTime, int distance, bool bonusability) : this(index)
+            public Ride(
+                int index,
+                Point startPoint,
+                Point destiPoint,
+                int earlitTime,
+                int latestTime,
+                int distance,
+                int timeStartShortest,
+                int timeFinshShortest,
+                int timeFinshLongest,
+                bool bonusability) : this(index)
             {
                 StartPoint = startPoint;
                 DestiPoint = destiPoint;
@@ -356,6 +381,10 @@ namespace self_driven_ride
                 LatestTime = latestTime;
 
                 Distance = distance;
+
+                TimeStartShortest = timeStartShortest;
+                TimeFinshShortest = timeFinshShortest;
+                TimeFinshLongest = timeFinshLongest;
 
                 IsBonusable = bonusability;
             }
