@@ -33,10 +33,10 @@ namespace self_driven_ride
         {
             string path;
             //path = ".\\input\\a_example.in";
-            //path = ".\\input\\b_should_be_easy.in";
+            path = ".\\input\\b_should_be_easy.in";
             //path = "./input/c_no_hurry.in";
             //path = ".\\input\\d_metropolis.in";
-            path = ".\\input\\e_high_bonus.in";
+            //path = ".\\input\\e_high_bonus.in";
 
             CaseFileName = Path.GetFileName(path);
             Console.WriteLine($"Case file {CaseFileName}");
@@ -188,22 +188,25 @@ namespace self_driven_ride
                     for (var i = 0; i < car.SuccessfulRides.Count; i++)
                     {
                         var isLastRideInCar = (i == car.SuccessfulRides.Count - 1);
+                        var rideCurrentCar = car.SuccessfulRides[i];
 
                         var headingPoint = i == 0 ? new Point(0, 0) : car.SuccessfulRides[i - 1].DestiPoint;
                         // headingPoint: point which the car will head from it before ride to be inserted
                         // nextRidPoint: point which the car will heat to it after inserted ride (aka, the current car's ride)
 
                         var toInsertedRideTime = Ride.DistanceGet(headingPoint, rideInserted.StartPoint);
-                        var toNextRideTime = Ride.DistanceGet(rideInserted.DestiPoint, car.SuccessfulRides[i].StartPoint);
+                        var toNextRideTime = Ride.DistanceGet(rideInserted.DestiPoint, rideCurrentCar.StartPoint);
 
-                        var accomulatedRidesTime =(i == 0) 
-                            ? 0 : GetTotalTimeOfRides(car.SuccessfulRides.GetRange(0, i - 1));
+                        var accomulatedRidesTime = (i == 0)
+                            ? 0
+                            : GetTotalTimeOfRides(car.SuccessfulRides.GetRange(0, i - 1));
                         var toInsertedRideAccomulatedTime = accomulatedRidesTime + toInsertedRideTime;
 
-                        var toNextRideAccomulatedTime = toInsertedRideAccomulatedTime + rideInserted.Distance + toNextRideTime;
+                        var toNextRideAccomulatedTime =
+                            toInsertedRideAccomulatedTime + rideInserted.Distance + toNextRideTime;
 
                         if (toInsertedRideAccomulatedTime <= rideInserted.EarlitTime &&
-                            toNextRideAccomulatedTime <= car.SuccessfulRides[i].EarlitTime)
+                            toNextRideAccomulatedTime <= rideCurrentCar.EarlitTime)
                         {
                             //this ride can be inserted before current car's ride
                             car.SuccessfulRides.Insert(i, rideInserted);
@@ -211,19 +214,15 @@ namespace self_driven_ride
                             break;
                         }
 
-                        if (isLastRideInCar)
-                        {
-                            //this is the last ride in the car, go to next ride in left over sortedRides
-                            rideUnfittable = true;
-                            continue;
-                        }
-
                         //check if ride can be fit after the current car's ride
-                        accomulatedRidesTime = GetTotalTimeOfRides(car.SuccessfulRides.GetRange(0, i));
+                        accomulatedRidesTime += Ride.DistanceGet(headingPoint, rideCurrentCar.StartPoint) +
+                                                rideCurrentCar.Distance;
 
-                        toInsertedRideTime = Ride.DistanceGet(
-                            car.SuccessfulRides[i].DestiPoint,
-                            rideInserted.StartPoint);
+                        toInsertedRideTime =
+                            Ride.DistanceGet(
+                                rideCurrentCar.DestiPoint,
+                                rideInserted.StartPoint);
+
                         toInsertedRideAccomulatedTime = accomulatedRidesTime + toInsertedRideTime;
 
                         if (toInsertedRideAccomulatedTime > rideInserted.EarlitTime)
@@ -238,7 +237,7 @@ namespace self_driven_ride
                             //no need to check after ride insertion
                             if (toInsertedRideAccomulatedTime <= rideInserted.EarlitTime)
                             {
-                                car.SuccessfulRides.Insert(i, rideInserted);
+                                car.SuccessfulRides.Add(rideInserted);
                                 sortedRides.RemoveAt(indexRide);
                                 rideUnfittable = false;
                                 break;
@@ -247,13 +246,17 @@ namespace self_driven_ride
                         else
                         {
                             //need to check the next ride after insertion
-                            toNextRideTime = Ride.DistanceGet(rideInserted.DestiPoint, car.SuccessfulRides[i + 1].StartPoint);
-                            toNextRideAccomulatedTime = toInsertedRideAccomulatedTime + rideInserted.Distance + toNextRideTime;
+                            toNextRideTime =
+                                Ride.DistanceGet(
+                                    rideInserted.DestiPoint,
+                                    car.SuccessfulRides[i + 1].StartPoint);
+                            toNextRideAccomulatedTime =
+                                toInsertedRideAccomulatedTime + rideInserted.Distance + toNextRideTime;
 
                             if (toInsertedRideAccomulatedTime <= rideInserted.EarlitTime &&
                                 toNextRideAccomulatedTime <= car.SuccessfulRides[i + 1].EarlitTime)
                             {
-                                car.SuccessfulRides.Insert(i, rideInserted);
+                                car.SuccessfulRides.Insert(i + 1, rideInserted);
                                 sortedRides.RemoveAt(indexRide);
                                 rideUnfittable = false;
                                 break;
@@ -266,6 +269,7 @@ namespace self_driven_ride
                 }
             }
 
+            Console.Read();
             //trying 1 - a & b:: without bonus
         }
 
