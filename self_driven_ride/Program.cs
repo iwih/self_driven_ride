@@ -61,7 +61,7 @@ namespace self_driven_ride
             var tokensMain = File.ReadAllLines(path, Encoding.ASCII);
 
             //reading case header info
-            var spaceSplitter = new[] { " " };
+            var spaceSplitter = new[] {" "};
             var headerTokens = tokensMain[0].Split(spaceSplitter, StringSplitOptions.RemoveEmptyEntries);
 
             var rows = int.Parse(headerTokens[0]);
@@ -105,13 +105,17 @@ namespace self_driven_ride
                 var strtTimeShortest = Ride.DistanceGet(new Point(0, 0), startPoint);
                 var endTimeLongest = latest - earlit + strtTimeShortest;
 
-                var isAssignableRide = (endTimeLongest <= T_Time); //the total time to start and finish the ride reasonable with the total time of the case
-                if (!isAssignableRide) continue; //this ride can't be taken anyway -> remove it totally -> check the next one
+                var isAssignableRide =
+                    (endTimeLongest <=
+                     T_Time); //the total time to start and finish the ride reasonable with the total time of the case
+                if (!isAssignableRide)
+                    continue; //this ride can't be taken anyway -> remove it totally -> check the next one
 
                 var endTimeShortest = strtTimeShortest + distance;
                 var isBonusable = (endTimeShortest <= T_Time);
 
-                var ride = new Ride(i - 1, startPoint, destiPoint, earlit, latest, distance, strtTimeShortest, endTimeShortest, endTimeLongest, isBonusable);
+                var ride = new Ride(i - 1, startPoint, destiPoint, earlit, latest, distance, strtTimeShortest,
+                    endTimeShortest, endTimeLongest, isBonusable);
 
                 RidesBooked.Add(ride);
             }
@@ -172,11 +176,100 @@ namespace self_driven_ride
             // trying 1 - a & b:: with bonus
             foreach (var car in CarsFleet)
             {
-                
+                var indexRide = 0;
+                while (indexRide < sortedRides.Count)
+                {
+                    var ride = sortedRides[indexRide];
+                    var rideUnfittable = false;
+
+                    var earlitTime = ride.TimeStartShortest;
+                    var finishTime = ride.TimeFinshShortest;
+
+                    for (var i = 0; i < car.SuccessfulRides.Count; i++)
+                    {
+                        (Point headingPoint, Point nextRidPoint) = GetLimitingPoints(i, car);
+                        // headingPoint: point which the car will head from it before current ride
+                        // nextRidPoint: point which the car will heat to it after current ride
+
+                        var headingTime = Ride.DistanceGet(headingPoint, ride.StartPoint);
+                        var toNextRideTime =
+                            (nextRidPoint == null) ? -1 : Ride.DistanceGet(ride.DestiPoint, nextRidPoint);
+
+                        var accomulatedRidesTime =
+                            (i == 0) ? 0 : GetTotalTimeOfRides(car.SuccessfulRides.GetRange(0, i - 1));
+
+                        var toThisRideTime = accomulatedRidesTime + headingTime;
+
+                        var toNextRideAccomulatedTime = toThisRideTime + ride.Distance + toNextRideTime;
+
+                        var canInsertRideBefore = (toThisRideTime <= ride.EarlitTime) &&
+                                                  (toNextRideAccomulatedTime <= car.SuccessfulRides[i].EarlitTime);
+                        if (canInsertRideBefore)
+                        {
+                            //this ride can be inserted before current car's ride
+                            car.SuccessfulRides.Insert(i, ride);
+                            sortedRides.RemoveAt(indexRide);
+                        }
+                        else
+                        {
+                            //check if ride can be fit after the current car's ride
+                            accomulatedRidesTime = GetTotalTimeOfRides(car.SuccessfulRides.GetRange(0, i));
+
+                            headingTime = Ride.DistanceGet(
+                                car.SuccessfulRides[i].DestiPoint,
+                                sortedRides[indexRide].StartPoint);
+
+
+                        }
+
+                        //todo assign rideUnfittable
+                    }
+
+                    if (rideUnfittable)
+                        indexRide++;
+                }
             }
 
             //trying 1 - a & b:: without bonus
+        }
 
+        private static (Point, Point) GetLimitingPoints(int i, Car car)
+        {
+            Point headingPoint;
+            if (i == 0)
+                headingPoint = new Point(0, 0);
+            else
+                headingPoint = car.SuccessfulRides[i - 1].DestiPoint;
+
+            Point nextRidPoint;
+            if (car.SuccessfulRides.Count == 0)
+                nextRidPoint = null;
+            else
+            {
+                if ((i + 1) == car.SuccessfulRides.Count) //this is the last ride
+                    nextRidPoint = null;
+                else
+                    nextRidPoint = car.SuccessfulRides[i].StartPoint;
+            }
+
+            return (headingPoint, nextRidPoint);
+        }
+
+
+        private static int GetTotalTimeOfRides(List<Ride> rides)
+        {
+            var totalTime = 0;
+
+            if (rides != null)
+                if (rides.Count != 0)
+                    for (var i = 0; i < rides.Count; i++)
+                    {
+                        var headingPoint = (i == 0) ? new Point(0, 0) : rides[i - 1].DestiPoint;
+
+                        totalTime += Ride.DistanceGet(headingPoint, rides[i].StartPoint) + rides[i].Distance;
+                    }
+
+            return totalTime;
         }
 
         private static void ConsoleLineEnter()
