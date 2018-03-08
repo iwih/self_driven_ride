@@ -176,6 +176,13 @@ namespace self_driven_ride
             if (sortedRides.Count == 0) return;
 
             // trying 1 - a & b:: with bonus
+            FitRidesWithBonus(sortedRides);
+
+            //trying 1 - a & b:: without bonus
+        }
+
+        private static void FitRidesWithBonus(List<Ride> sortedRides)
+        {
             var ridesCounter = 0;
             while (ridesCounter < sortedRides.Count)
             {
@@ -259,8 +266,6 @@ namespace self_driven_ride
 
                 ridesCounter++;
             }
-
-            //trying 1 - a & b:: without bonus
         }
 
         private static bool IsRideFittableInPlace(int totalTimeBefore, Ride insertedRide, List<Ride> ridesAfter)
@@ -296,23 +301,7 @@ namespace self_driven_ride
 
             return isRideFittable;
         }
-
-        private static int GetTotalTimeOfRides(List<Ride> rides)
-        {
-            var totalTime = 0;
-
-            if (rides != null)
-                if (rides.Count != 0)
-                    for (var i = 0; i < rides.Count; i++)
-                    {
-                        var headingPoint = (i == 0) ? new Point(0, 0) : rides[i - 1].DestiPoint;
-
-                        totalTime += Ride.DistanceGet(headingPoint, rides[i].StartPoint) + rides[i].Distance;
-                    }
-
-            return totalTime;
-        }
-
+        
         private static void ConsoleLineEnter()
         {
             Console.WriteLine();
