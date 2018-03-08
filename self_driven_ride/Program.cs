@@ -104,7 +104,7 @@ namespace self_driven_ride
 
                 //validating ride
                 var strtTimeShortest = Ride.DistanceGet(new Point(0, 0), startPoint);
-                var endTimeLongest =  strtTimeShortest + distance;
+                var endTimeLongest = strtTimeShortest + distance;
 
                 var isAssignableRide =
                     (endTimeLongest <=
@@ -176,12 +176,15 @@ namespace self_driven_ride
             if (sortedRides.Count == 0) return;
 
             // trying 1 - a & b:: with bonus
-            FitRidesWithBonus(sortedRides);
+            FitRidesWithBonus(sortedRides, true);
 
             //trying 1 - a & b:: without bonus
+            if (sortedRides.Any())
+                FitRidesWithBonus(sortedRides, false);
+            Console.Read();
         }
 
-        private static void FitRidesWithBonus(List<Ride> sortedRides)
+        private static void FitRidesWithBonus(List<Ride> sortedRides, bool checkBonus)
         {
             var ridesCounter = 0;
             while (ridesCounter < sortedRides.Count)
@@ -211,7 +214,8 @@ namespace self_driven_ride
                             isRideFitted = IsRideFittableInPlace(
                                 toInsertedRideTotalTime,
                                 insertedRide,
-                                car.SuccessfulRides.GetRange(0, car.SuccessfulRides.Count));
+                                car.SuccessfulRides.GetRange(0, car.SuccessfulRides.Count),
+                                checkBonus);
 
                             if (isRideFitted)
                             {
@@ -246,7 +250,8 @@ namespace self_driven_ride
                         isRideFitted = IsRideFittableInPlace(
                             toInsertedRideTotalTime,
                             insertedRide,
-                            ridesAfter);
+                            ridesAfter,
+                            checkBonus);
                         if (isRideFitted)
                         {
                             car.SuccessfulRides.Insert(ridesCounterInCar + 1, insertedRide);
@@ -268,7 +273,11 @@ namespace self_driven_ride
             }
         }
 
-        private static bool IsRideFittableInPlace(int totalTimeBefore, Ride insertedRide, List<Ride> ridesAfter)
+        private static bool IsRideFittableInPlace(
+            int totalTimeBefore,
+            Ride insertedRide,
+            List<Ride> ridesAfter,
+            bool checkBonus)
         {
             var isRideFittable = true;
             isRideFittable &= totalTimeBefore <= insertedRide.EarlitTime;
@@ -279,21 +288,25 @@ namespace self_driven_ride
 
                 for (var ridesCounter = 0; ridesCounter < ridesAfter.Count; ridesCounter++)
                 {
+                    var rideCurrent = ridesAfter[ridesCounter];
+
                     if (ridesCounter == 0)
                         totalTimeBefore +=
                             Ride.DistanceGet(
                                 insertedRide.DestiPoint,
-                                ridesAfter[ridesCounter].StartPoint);
+                                rideCurrent.StartPoint);
                     else
                         totalTimeBefore +=
                             Ride.DistanceGet(
                                 ridesAfter[ridesCounter - 1].DestiPoint,
-                                ridesAfter[ridesCounter].StartPoint);
+                                rideCurrent.StartPoint);
 
-                    isRideFittable &= totalTimeBefore <= ridesAfter[ridesCounter].EarlitTime;
+                    isRideFittable &= (checkBonus && rideCurrent.IsBonusable)
+                        ? totalTimeBefore <= rideCurrent.EarlitTime
+                        : (totalTimeBefore + rideCurrent.Distance) <= rideCurrent.LatestTime;
 
                     if (isRideFittable)
-                        totalTimeBefore += ridesAfter[ridesCounter].Distance;
+                        totalTimeBefore += rideCurrent.Distance;
                     else
                         break;
                 }
@@ -301,7 +314,7 @@ namespace self_driven_ride
 
             return isRideFittable;
         }
-        
+
         private static void ConsoleLineEnter()
         {
             Console.WriteLine();
