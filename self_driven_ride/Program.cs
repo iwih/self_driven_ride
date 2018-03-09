@@ -1,10 +1,10 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
+using System.Net;
 using System.Text;
 
 
@@ -22,8 +22,6 @@ namespace self_driven_ride
         private static string _outputFilePath;
         private static string _outputDirectory;
 
-        private static bool _loggedCars = false;
-
 
         public static void Main()
         {
@@ -35,9 +33,9 @@ namespace self_driven_ride
             string path;
             //path = ".\\input\\a_example.in";
             //path = ".\\input\\b_should_be_easy.in";
-            path = ".\\input\\c_no_hurry.in";
+            //path = ".\\input\\c_no_hurry.in";
             //path = ".\\input\\d_metropolis.in";
-            //path = ".\\input\\e_high_bonus.in";
+            path = ".\\input\\e_high_bonus.in";
 
             CaseFileName = Path.GetFileName(path);
             Console.WriteLine($"Case file {CaseFileName}");
@@ -49,8 +47,7 @@ namespace self_driven_ride
 
         private static void LoadCaseFile()
         {
-            var path = string.Empty;
-            path = CasePath();
+            var path = CasePath();
 
             if (!File.Exists(path))
             {
@@ -75,7 +72,7 @@ namespace self_driven_ride
             Console.WriteLine($"Cars #{cars}");
             for (var i = 0; i < cars; i++)
             {
-                CarsFleet.Add(new Car(i));
+                CarsFleet.Add(new Car());
             }
 
             var rides = int.Parse(headerTokens[3]);
@@ -112,11 +109,7 @@ namespace self_driven_ride
                 if (!isAssignableRide)
                     continue; //this ride can't be taken anyway -> remove it totally -> check the next one
 
-                var endTimeShortest = strtTimeShortest + distance;
-                var isBonusable = (endTimeShortest <= T_Time);
-
-                var ride = new Ride(i - 1, startPoint, destiPoint, earlit, latest, distance, strtTimeShortest,
-                    endTimeShortest, endTimeLongest, isBonusable);
+                var ride = new Ride(i - 1, startPoint, destiPoint, earlit, latest, distance);
 
                 RidesBooked.Add(ride);
             }
@@ -128,7 +121,7 @@ namespace self_driven_ride
         {
             LoadCaseFile();
 
-            ScoreDependantSelection();
+            WeighedScoreSelection();
 
             Console.WriteLine();
 
@@ -140,179 +133,44 @@ namespace self_driven_ride
             Process.Start(@"C:\Windows\Explorer.exe", _outputDirectory);
         }
 
-        private static void ScoreDependantSelection()
+        private static void WeighedScoreSelection()
         {
-            //sorting rides by their total score (score + bonus)
-            var sortedRides = RidesBooked.OrderByDescending(ride => ride.TotalScore()).ToList();
-            Console.WriteLine("Rides sorted descending");
-
-            ConsoleLineEnter();
-
-            Console.WriteLine("Assiging highest bonus-rides to cars..");
-            //this check is at the start of time (big-bang), all the cars are at the origin point (0, 0)
-            var indexFreeCar = 0;
-            while (indexFreeCar < CarsFleet.Count && sortedRides.Count > 0)
+            Console.WriteLine("Distributing rides amoung cars by weight..");
+            var rides = RidesBooked.ToList();
+            var keepLooking = true;
+            while (keepLooking)
             {
-                sortedRides[0].BonusWillBeScored = true;
-                CarsFleet[indexFreeCar].SuccessfulRides.Add(sortedRides[0]);
-                sortedRides.RemoveAt(0);
-
-                indexFreeCar++;
-            }
-
-            //now, there are the following probablities:
-            //1) All cars have a ride and there is/are left ride(s)
-            //   a) Some or all left rides can be fit before some or all cars' ride
-            //   b) Some or all left rides can be fit after some or all cars' ride
-            //   c) Mix of (a) & (b)
-            //   e) Some or all left rides can't be fit neither before nor after some or all cars' ride
-            //      i)  the unfittable rides are not a bigger deal -> ok
-            //      ii) the unfittable rides are a bigger deal!    -> f#*k
-            //
-            //2) All cars have a ride and no rides left -> perfect -> done
-            //3) Some of cars have rides and there is no left rides -> perfect -> done
-
-            // this is (2 & 3) possiblities
-            if (sortedRides.Count == 0) return;
-
-            // trying 1 - a & b:: with bonus
-            FitRidesWithBonus(sortedRides, true);
-
-            //trying 1 - a & b:: without bonus
-            if (sortedRides.Any())
-                FitRidesWithBonus(sortedRides, false);
-            Console.Read();
-        }
-
-        private static void FitRidesWithBonus(List<Ride> sortedRides, bool checkBonus)
-        {
-            var ridesCounter = 0;
-            while (ridesCounter < sortedRides.Count)
-            {
-                var insertedRide = sortedRides[ridesCounter];
-
-                var carCounter = 0;
-
-                while (carCounter < CarsFleet.Count)
+                keepLooking = false;
+                foreach (var car in CarsFleet)
                 {
-                    var car = CarsFleet[carCounter];
-
-                    var toFinishThisRideTotalTime = 0;
-                    var isRideUnfittableToCar = true;
-                    for (var ridesCounterInCar = 0; ridesCounterInCar < car.SuccessfulRides.Count; ridesCounterInCar++)
+                    var validRide = new SortedDictionary<float, int>();
+                    foreach (var ride in rides)
                     {
-                        var rideCurrentCar = car.SuccessfulRides[ridesCounterInCar];
-                        var isFrstRideInCar = (ridesCounterInCar == 0);
-
-                        bool isRideFitted;
-                        var toInsertedRideTotalTime = 0;
-                        if (isFrstRideInCar)
-                        {
-                            //try to fit the inserted ride before this _first_ ride
-                            toInsertedRideTotalTime = Ride.DistanceGet(new Point(0, 0), insertedRide.StartPoint);
-
-                            isRideFitted = IsRideFittableInPlace(
-                                toInsertedRideTotalTime,
-                                insertedRide,
-                                car.SuccessfulRides.GetRange(0, car.SuccessfulRides.Count),
-                                checkBonus);
-
-                            if (isRideFitted)
+                        var isPickupableRide = Ride.IsRidePickupable(ride, car);
+                        if (isPickupableRide)
+                            try
                             {
-                                car.SuccessfulRides.Insert(0, insertedRide);
-                                sortedRides.RemoveAt(ridesCounter);
-                                isRideUnfittableToCar = false;
-                                break;
+                                validRide.Add(ride.Weight, ride.Index);
                             }
-                        }
-
-                        //try to fit the inserted ride after this ride
-                        var headingPoint = (isFrstRideInCar)
-                            ? new Point(0, 0)
-                            : car.SuccessfulRides[ridesCounterInCar - 1].DestiPoint;
-
-                        toFinishThisRideTotalTime +=
-                            Ride.DistanceGet(headingPoint,
-                                rideCurrentCar.StartPoint) +
-                            rideCurrentCar.Distance;
-
-                        toInsertedRideTotalTime =
-                            toFinishThisRideTotalTime +
-                            Ride.DistanceGet(rideCurrentCar.DestiPoint, insertedRide.StartPoint);
-
-                        var isLastRideInCar = ridesCounterInCar == car.SuccessfulRides.Count - 1;
-                        var ridesAfterRangeCount = car.SuccessfulRides.Count - ridesCounterInCar - 1;
-
-                        var ridesAfter = isLastRideInCar
-                            ? null
-                            : car.SuccessfulRides.GetRange(ridesCounterInCar + 1, ridesAfterRangeCount);
-
-                        isRideFitted = IsRideFittableInPlace(
-                            toInsertedRideTotalTime,
-                            insertedRide,
-                            ridesAfter,
-                            checkBonus);
-                        if (isRideFitted)
-                        {
-                            car.SuccessfulRides.Insert(ridesCounterInCar + 1, insertedRide);
-                            sortedRides.RemoveAt(ridesCounter);
-                            isRideUnfittableToCar = false;
-                            break;
-                        }
+                            catch
+                            {
+                            }
                     }
 
-                    if (isRideUnfittableToCar)
-                        carCounter++;
-                    else if (!isRideUnfittableToCar && ridesCounter < sortedRides.Count)
-                        insertedRide = sortedRides[ridesCounter];
-                    else
-                        break;
-                }
+                    if (validRide.Any())
+                    {
+                        var rideIndex = validRide.Reverse().First().Value;
+                        var ride = rides.Find(x => x.Index == rideIndex);
+                        car.AddRide(ride.Clone());
+                        rides.Remove(ride);
 
-                ridesCounter++;
-            }
-        }
-
-        private static bool IsRideFittableInPlace(
-            int totalTimeBefore,
-            Ride insertedRide,
-            List<Ride> ridesAfter,
-            bool checkBonus)
-        {
-            var isRideFittable = true;
-            isRideFittable &= totalTimeBefore <= insertedRide.EarlitTime;
-
-            if (isRideFittable && ridesAfter != null)
-            {
-                totalTimeBefore += insertedRide.Distance;
-
-                for (var ridesCounter = 0; ridesCounter < ridesAfter.Count; ridesCounter++)
-                {
-                    var rideCurrent = ridesAfter[ridesCounter];
-
-                    if (ridesCounter == 0)
-                        totalTimeBefore +=
-                            Ride.DistanceGet(
-                                insertedRide.DestiPoint,
-                                rideCurrent.StartPoint);
-                    else
-                        totalTimeBefore +=
-                            Ride.DistanceGet(
-                                ridesAfter[ridesCounter - 1].DestiPoint,
-                                rideCurrent.StartPoint);
-
-                    isRideFittable &= (checkBonus && rideCurrent.IsBonusable)
-                        ? totalTimeBefore <= rideCurrent.EarlitTime
-                        : (totalTimeBefore + rideCurrent.Distance) <= rideCurrent.LatestTime;
-
-                    if (isRideFittable)
-                        totalTimeBefore += rideCurrent.Distance;
-                    else
-                        break;
+                        keepLooking = true;
+                    }
                 }
             }
 
-            return isRideFittable;
+            Console.WriteLine($"Finished distributing rides, {rides.Count} left only!");
+            ConsoleLineEnter();
         }
 
         private static void ConsoleLineEnter()
@@ -322,6 +180,7 @@ namespace self_driven_ride
 
         private static void GenerateOuputFile()
         {
+            var score = 0;
             File.WriteAllText(_outputFilePath, string.Empty);
             foreach (var car in CarsFleet)
             {
@@ -329,11 +188,15 @@ namespace self_driven_ride
                 foreach (var t in car.SuccessfulRides)
                 {
                     ridesLine += " " + t.Index;
+                    score += t.Score;
                 }
 
                 var carLine = (car.SuccessfulRides.Count) + " " + ridesLine + Environment.NewLine;
+                ;
                 File.AppendAllText(_outputFilePath, carLine);
             }
+
+            Console.WriteLine($"Case score = {score}");
         }
 
         internal class Board
@@ -376,13 +239,9 @@ namespace self_driven_ride
 
             internal int Distance { get; }
 
-            internal int TimeStartShortest { get; }
-            internal int TimeFinshShortest { get; }
-            internal int TimeFinshLongest { get; }
-
-            internal bool IsBonusable { set; get; }
-
-            internal bool BonusWillBeScored { set; get; }
+            internal int Score { set; get; }
+            internal int Cost { set; get; }
+            internal float Weight { set; get; }
 
             public Ride(
                 int index,
@@ -390,11 +249,7 @@ namespace self_driven_ride
                 Point destiPoint,
                 int earlitTime,
                 int latestTime,
-                int distance,
-                int timeStartShortest,
-                int timeFinshShortest,
-                int timeFinshLongest,
-                bool bonusability) : this(index)
+                int distance) : this(index)
             {
                 StartPoint = startPoint;
                 DestiPoint = destiPoint;
@@ -402,12 +257,6 @@ namespace self_driven_ride
                 LatestTime = latestTime;
 
                 Distance = distance;
-
-                TimeStartShortest = timeStartShortest;
-                TimeFinshShortest = timeFinshShortest;
-                TimeFinshLongest = timeFinshLongest;
-
-                IsBonusable = bonusability;
             }
 
             public Ride(int index)
@@ -415,158 +264,70 @@ namespace self_driven_ride
                 Index = index;
             }
 
+            internal Ride Clone()
+            {
+                return new Ride(Index, StartPoint, DestiPoint, EarlitTime, LatestTime, Distance)
+                {
+                    Score = Score,
+                    Cost = Cost,
+                    Weight = Weight
+                };
+            }
+
+            internal static (int, int, float) CostScoreWeightRide(Ride ride, Car car)
+            {
+                var distanceToRide = DistanceGet(car.NextFreeLocation, ride.StartPoint);
+                var waitingSteps = ride.EarlitTime - car.NextFreeStep + distanceToRide;
+                if (waitingSteps < 0) waitingSteps = 0;
+
+                var cost = distanceToRide + waitingSteps + ride.Distance;
+
+                var score = (ride.EarlitTime >= (car.NextFreeStep + distanceToRide))
+                    ? ride.Distance + Bonus
+                    : ride.Distance;
+
+                var weight = ((float) score) / cost * 100;
+
+                return (cost, score, weight);
+            }
+
+            internal static bool IsRidePickupable(Ride ride, Car car)
+            {
+                (var cost, var score, var weight) = CostScoreWeightRide(ride, car);
+                var isPickupable = (car.NextFreeStep + cost) <= ride.LatestTime;
+
+                if (isPickupable)
+                    (ride.Cost, ride.Score, ride.Weight) = (cost, score, weight);
+
+                return isPickupable;
+            }
+
             internal static int DistanceGet(Point startPoint, Point destiPoint)
             {
                 return Math.Abs(destiPoint.R - startPoint.R) + Math.Abs(destiPoint.C - startPoint.C);
-            }
-
-            public override string ToString()
-            {
-                return " " + Index.ToString();
-            }
-
-            internal int TotalScore()
-            {
-                var score = IsBonusable ? (Distance + Bonus) : Distance;
-                return score;
             }
         }
 
         internal class Car
         {
-            public int Index { get; }
-
-            private Ride _rideCurrent;
-
-            internal Ride RideCurrent
-            {
-                set
-                {
-                    if (_rideCurrent != null)
-                        SuccessfulRides.Add(_rideCurrent);
-
-                    _rideCurrent = value;
-
-                    UpdateArrivalStatus();
-                }
-                get => _rideCurrent;
-            }
-
-            private void UpdateArrivalStatus()
-            {
-                var nullRide = RideCurrent == null;
-
-                StartArrived = nullRide ? false : (CheckIfArrived(RideCurrent.StartPoint) || WorkingOnRide);
-                DestiArrived = nullRide ? false : CheckIfArrived(RideCurrent.DestiPoint);
-            }
-
             internal List<Ride> SuccessfulRides { set; get; }
 
-            private Point _location;
+            internal Point NextFreeLocation { set; get; }
 
-            internal Point LocationCurrent
+            internal int NextFreeStep { private set; get; } = 0;
+
+            public Car()
             {
-                set
-                {
-                    _location = value;
-                    OnCarLocationChanged();
-                }
-                get => _location;
-            }
-
-            internal bool WorkingOnRide { set; get; }
-
-            internal bool DestiArrived { private set; get; }
-            internal bool StartArrived { private set; get; }
-
-            public Car(int index)
-            {
-                Index = index;
-
-                LocationCurrent = new Point(0, 0);
-
-                RideCurrent = null;
+                NextFreeLocation = new Point(0, 0);
 
                 SuccessfulRides = new List<Ride>();
-                CarLocationChanged += Car_CarLocationChanged;
-
-                if (_loggedCars)
-                    CleanCarLogFile();
             }
 
-            public void Move(Point pointDestination = null)
+            internal void AddRide(Ride ride)
             {
-                if (RideCurrent == null && pointDestination == null) return;
-
-                var pointTo = pointDestination ?? (WorkingOnRide ? RideCurrent.DestiPoint : RideCurrent.StartPoint);
-
-                var Rnew = LocationCurrent.R;
-                var Cnew = LocationCurrent.C;
-                if (LocationCurrent.R != pointTo.R)
-                {
-                    //move rows
-                    var step = pointTo.R > LocationCurrent.R ? 1 : -1;
-                    Rnew = LocationCurrent.R + step;
-                }
-                else
-                {
-                    //move columns
-                    var step = pointTo.C > LocationCurrent.C ? 1 : -1;
-                    Cnew = LocationCurrent.C + step;
-                }
-
-                LocationCurrent = new Point(Rnew, Cnew);
-            }
-
-            private bool CheckIfArrived(Point pointTo)
-            {
-                return (LocationCurrent.C == pointTo.C && LocationCurrent.R == pointTo.R);
-            }
-
-            public event PropertyChangedEventHandler CarLocationChanged;
-
-            protected virtual void OnCarLocationChanged([CallerMemberName] string propertyName = null)
-            {
-                CarLocationChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-            }
-
-            private void Car_CarLocationChanged(object sender, PropertyChangedEventArgs e)
-            {
-                UpdateArrivalStatus();
-
-                if (_loggedCars)
-                    WriteCarLog();
-
-                if (RideCurrent == null)
-                    return; //no need to update anything
-
-                if (WorkingOnRide && DestiArrived)
-                    RideCurrent = null; //ride finished
-
-                if (!WorkingOnRide && StartArrived)
-                    WorkingOnRide = true; //we started ride now!
-            }
-
-            private string _logFilePath;
-
-            private void CleanCarLogFile()
-            {
-                _logFilePath = Path.Combine(_outputDirectory, $"car_{Index}__.log");
-
-                File.WriteAllText(_logFilePath, string.Empty);
-                WriteCarLog();
-            }
-
-            private void WriteCarLog()
-            {
-                var rideIndex = RideCurrent?.Index.ToString() ?? "null";
-                File.AppendAllText(_logFilePath,
-                    $"({LocationCurrent.R}, {LocationCurrent.C})\tRide: {rideIndex}\tStartArrived: {StartArrived}\tDestiArrived: {DestiArrived}\n");
-            }
-
-            public bool IsFree()
-            {
-                return (RideCurrent == null);
+                SuccessfulRides.Add(ride);
+                NextFreeStep += ride.Cost;
+                NextFreeLocation = ride.DestiPoint;
             }
         }
     }
